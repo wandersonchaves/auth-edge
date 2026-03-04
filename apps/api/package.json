@@ -1,0 +1,11 @@
+{
+  "name": "@authedge/api",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "mkdir -p dist && esbuild src/index.ts --bundle --minify --platform=node --target=node20 --format=cjs --outfile=dist/index.js && cd dist && zip -j bundle.zip index.js"
+  },
+  "dependencies": {
+    "@authedge/shared": "*"
+  }
+}
