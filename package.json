@@ -1,0 +1,24 @@
+{
+  "name": "auth-edge",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm test -ws",
+    "infra:init": "cd iac/terraform/env/dev && terraform init",
+    "infra:plan": "cd iac/terraform/env/dev && terraform plan",
+    "infra:apply": "cd iac/terraform/env/dev && terraform apply -auto-approve",
+    "deploy": "npm run build && npm run infra:apply"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.130",
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.27.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
