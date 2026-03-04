@@ -1,0 +1,12 @@
+{
+  "name": "@authedge/security",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "jose": "^5.2.0",
+    "@authedge/shared": "*"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@authedge/shared",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.500.0",
+    "@aws-sdk/lib-dynamodb": "^3.500.0"
+  }
+}
