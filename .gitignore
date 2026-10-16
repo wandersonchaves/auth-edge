@@ -4,3 +4,6 @@ node_modules
 .terraform.lock.hcl
 dist
 
+
+# Terraform state
+*.tfstate*
