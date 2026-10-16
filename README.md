@@ -1,72 +1,54 @@
-# AuthEdge - Serverless Authentication Platform
+# AuthEdge
 
-Platform for secure authentication and authorization using AWS Serverless (Cognito, Lambda, API Gateway).
+Serverless authentication and authorization on AWS. Clients get a token from **Amazon Cognito** and call an **HTTP API** on API Gateway. A **Lambda authorizer** validates the JWT (with cached JWKS) and checks role-based access from Cognito groups before the request reaches the API Lambda. Access decisions are written to **DynamoDB** as an audit log. Everything is provisioned with **Terraform**.
 
-## Prerequisites
-- Node.js 20+
-- AWS CLI configured
-- Terraform 1.5+
+## Flow
 
-## Quick Start (Deploy)
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-2. **Build the project:**
-   ```bash
-   npm run build
-   ```
-3. **Deploy via Terraform:**
-   ```bash
-   npm run infra:init
-   npm run infra:apply
-   ```
-
-## Testing the Platform
-After deployment, you'll get the `api_endpoint`, `user_pool_id`, and `app_client_id` in the outputs.
-
-### 1. Create a User (AWS CLI)
-```bash
-# Create user
-aws cognito-idp sign-up \
-  --client-id <app_client_id> \
-  --username user@example.com \
-  --password "Password123!" \
-  --user-attributes Name=email,Value=user@example.com
-
-# Confirm user (Admin bypass)
-aws cognito-idp admin-confirm-sign-up \
-  --user-pool-id <user_pool_id> \
-  --username user@example.com
-
-# Add user to a group (user or admin)
-aws cognito-idp admin-add-user-to-group \
-  --user-pool-id <user_pool_id> \
-  --username user@example.com \
-  --group-name user
+```
+Client ──(1) sign in──► Cognito ──► JWT
+Client ──(2) Bearer JWT──► API Gateway (HTTP API)
+                               │ (3)
+                               ▼
+                        Lambda Authorizer ── JWKS (cached) ── Cognito
+                               │ (4) signature + claims
+                               │ (5) RBAC: Cognito groups × route
+                               ▼ allow / deny + user context
+                          API Lambda ──► DynamoDB (audit log)
 ```
 
-### 2. Login and get JWT
-```bash
-aws cognito-idp initiate-auth \
-  --client-id <app_client_id> \
-  --auth-flow USER_PASSWORD_AUTH \
-  --auth-parameters USERNAME=user@example.com,PASSWORD="Password123!" \
-  --query 'AuthenticationResult.IdToken' \
-  --output text
+## Design decisions
+
+- **HTTP API instead of REST API:** lower cost and latency for this use case.
+- **Custom Lambda authorizer** (`jose`) instead of the built-in JWT authorizer, to enforce RBAC per route.
+- **JWKS caching** in the authorizer to avoid one Cognito round trip per request.
+- **Pay-per-use:** no always-on servers.
+
+See [`docs/architecture.md`](docs/architecture.md), [`docs/threat-model.md`](docs/threat-model.md) and [`docs/runbook.md`](docs/runbook.md).
+
+## Repository layout
+
+```
+apps/authorizer   Lambda authorizer
+apps/api          API Lambda
+packages/security JWT and RBAC helpers
+packages/shared   shared types
+iac/terraform     infrastructure (env/dev)
 ```
 
-### 3. Call the API
+## Deploy
+
+Requires Node.js 20+, AWS CLI and Terraform 1.5+.
+
 ```bash
-export TOKEN="<jwt_token>"
-export API_URL="<api_endpoint>"
-
-# Public Health Check
-curl $API_URL/health
-
-# Protected /me
-curl -H "Authorization: Bearer $TOKEN" $API_URL/me
-
-# Protected /admin (requires 'admin' group)
-curl -H "Authorization: Bearer $TOKEN" $API_URL/admin
+npm install && npm run build
+cd iac/terraform/env/dev
+terraform init
+terraform apply
+cd - && ./test-flow.sh     # end-to-end check: sign up, sign in, call the API, verify allow/deny
 ```
+
+> Terraform state is not committed. Configure a remote backend (S3 + DynamoDB lock) before sharing an environment.
+
+## Stack
+
+TypeScript · AWS Lambda · API Gateway · Cognito · DynamoDB · CloudWatch · IAM · Terraform
