@@ -1,18 +1,22 @@
 #!/bin/bash
 
-# Preencha com os outputs do Terraform
-API_URL="https://9ixyiz7df7.execute-api.us-east-1.amazonaws.com"
-USER_POOL_ID="us-east-1_hjsvFyKMy"
-CLIENT_ID="isimpinrqh06nh1ge75flmicf"
-EMAIL="test@example.com"
-PASSWORD="Password123!"
+# Reads the deployed environment from Terraform outputs (run `npm run deploy` first).
+TF_DIR="$(dirname "$0")/iac/terraform/env/dev"
+API_URL=$(terraform -chdir="$TF_DIR" output -raw api_endpoint)
+USER_POOL_ID=$(terraform -chdir="$TF_DIR" output -raw user_pool_id)
+CLIENT_ID=$(terraform -chdir="$TF_DIR" output -raw app_client_id)
+EMAIL="${TEST_EMAIL:-test@example.com}"
+if [ -z "$TEST_PASSWORD" ]; then
+  echo "Set TEST_PASSWORD to a throwaway value for the test user." >&2
+  exit 1
+fi
 
 echo "--- 1. Preparando Usuário ---"
 # Silenciamos o erro se o usuário já existe
 aws cognito-idp sign-up \
   --client-id "$CLIENT_ID" \
   --username "$EMAIL" \
-  --password "$PASSWORD" \
+  --password "$TEST_PASSWORD" \
   --user-attributes Name=email,Value="$EMAIL" 2>/dev/null
 
 aws cognito-idp admin-confirm-sign-up \
@@ -26,7 +30,7 @@ echo "--- 2. Realizando Login e Obtendo Token ---"
 TOKEN=$(aws cognito-idp initiate-auth \
   --client-id "$CLIENT_ID" \
   --auth-flow USER_PASSWORD_AUTH \
-  --auth-parameters USERNAME="$EMAIL",PASSWORD="$PASSWORD" \
+  --auth-parameters USERNAME="$EMAIL",PASSWORD="$TEST_PASSWORD" \
   --query 'AuthenticationResult.IdToken' \
   --output text)
 

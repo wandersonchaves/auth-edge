@@ -2,6 +2,11 @@ import { APIGatewayProxyEventV2WithRequestContext, APIGatewaySimpleAuthorizerWit
 import { SecurityManager } from '@authedge/security';
 import { logger, AuthorizerContext } from '@authedge/shared';
 
+const DENY: APIGatewaySimpleAuthorizerWithContextResult<AuthorizerContext> = {
+  isAuthorized: false,
+  context: { userId: '', email: '', groups: '' },
+};
+
 const security = new SecurityManager(
   process.env.AWS_REGION || 'us-east-1',
   process.env.USER_POOL_ID!,
@@ -17,7 +22,7 @@ export const handler = async (
 
   if (!token) {
     await logger.log({ level: 'WARN', event: 'TOKEN_INVALID', requestId, message: 'Missing token' });
-    return { isAuthorized: false };
+    return DENY;
   }
 
   try {
@@ -66,6 +71,6 @@ export const handler = async (
       message: 'Token verification failed', 
       details: { error: (err as Error).message } 
     });
-    return { isAuthorized: false };
+    return DENY;
   }
 };
