@@ -1,17 +1,29 @@
-import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { UserContext } from '@authedge/shared';
+import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from 'jose';
+import type { UserContext } from '@authedge/shared';
 
-const JWKS_CACHE: Record<string, any> = {};
+const JWKS_CACHE: Record<string, JWTVerifyGetKey> = {};
 
 export class SecurityManager {
-  private jwks: any;
+  private jwks: JWTVerifyGetKey;
   private issuer: string;
 
-  constructor(private region: string, private userPoolId: string, private clientId: string) {
+  // `jwks` is optional so tests can inject a local key set instead of calling Cognito.
+  constructor(
+    private region: string,
+    private userPoolId: string,
+    private clientId: string,
+    jwks?: JWTVerifyGetKey,
+  ) {
     const jwksUrl = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}/.well-known/jwks.json`;
     this.issuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`;
     
-    // Simple in-memory singleton cache per instance
+    if (jwks) {
+      this.jwks = jwks;
+      return;
+    }
+
+    // One remote key set per JWKS URL, reused across invocations of a warm Lambda.
+    // jose also caches the fetched keys inside the key set.
     if (!JWKS_CACHE[jwksUrl]) {
       JWKS_CACHE[jwksUrl] = createRemoteJWKSet(new URL(jwksUrl));
     }

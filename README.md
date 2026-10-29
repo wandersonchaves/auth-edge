@@ -25,6 +25,12 @@ Client ──(2) Bearer JWT──► API Gateway (HTTP API)
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/threat-model.md`](docs/threat-model.md) and [`docs/runbook.md`](docs/runbook.md).
 
+## Status
+
+The code, tests and Terraform are in this repository. I deployed the `dev` environment and ran `test-flow.sh` end to end (sign up, sign in, public route, protected route, admin deny/allow), then **tore the environment down to avoid AWS cost**. There is no live demo URL; `npm run deploy` recreates everything.
+
+Scope and limits: one Cognito user pool, two groups (`admin`, `user`), one path rule (`/admin*` requires `admin`). The authorizer expects a Cognito **ID token** (the `aud` claim must equal the app client id). It is a portfolio project, not a production system.
+
 ## Repository layout
 
 ```
@@ -35,6 +41,18 @@ packages/shared   shared types
 iac/terraform     infrastructure (env/dev)
 ```
 
+## Tests and CI
+
+```bash
+npm install
+npm run typecheck
+npm test        # vitest: JWT verification and RBAC helper
+```
+
+`packages/security` is tested with locally generated keys (no network): valid token, wrong signature, wrong issuer, wrong audience, expired and malformed tokens, plus the group check. GitHub Actions runs typecheck, tests and build on every push and pull request.
+
+Not covered yet: the authorizer handler itself (route rule and audit-log writes) and Terraform validation in CI.
+
 ## Deploy
 
 Requires Node.js 20+, AWS CLI and Terraform 1.5+.
@@ -44,7 +62,7 @@ npm install && npm run build
 cd iac/terraform/env/dev
 terraform init
 terraform apply
-cd - && ./test-flow.sh     # end-to-end check: sign up, sign in, call the API, verify allow/deny
+cd - && TEST_PASSWORD='choose-a-throwaway-password' ./test-flow.sh   # end-to-end: sign up, sign in, call the API, verify allow/deny
 ```
 
 > Terraform state is not committed. Configure a remote backend (S3 + DynamoDB lock) before sharing an environment.
